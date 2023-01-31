@@ -1,0 +1,54 @@
+create source table users
+(
+  userid string primary key,
+  registertime bigint,
+  regionid string,
+  gender string
+) with (kafka_topic='users',value_format='json');
+
+create source table credit_cards
+(
+  card_id integer primary key,
+  card_number bigint,
+  cvv integer,
+  expiration_date string
+) with (kafka_topic='credit_cards',value_format='json');
+
+create stream transactions
+(
+  transaction_id integer,
+  card_id integer,
+  user_id string,
+  purchase_id integer,
+  store_id integer
+) with (kafka_topic='transactions',value_format='json');
+
+create stream credit_card_transactions
+with (kafka_topic='credit_card_transactions',value_format='json')
+as select transaction_id,
+          card_number,
+          cvv,
+          expiration_date,
+          transactions.card_id,
+          user_id,
+          purchase_id,
+          store_id
+from transactions 
+join credit_cards on transactions.card_id=credit_cards.card_id
+emit changes;
+
+create stream users_credit_card_transactions
+with (kafka_topic='users_credit_card_transactions',value_format='json')
+as select transaction_id,
+          card_number,
+          cvv,
+          expiration_date,
+          purchase_id,
+          store_id,
+          userid,
+          registertime,
+          regionid,
+          gender
+from credit_card_transactions 
+join users on credit_card_transactions.user_id=users.userid
+emit changes;
